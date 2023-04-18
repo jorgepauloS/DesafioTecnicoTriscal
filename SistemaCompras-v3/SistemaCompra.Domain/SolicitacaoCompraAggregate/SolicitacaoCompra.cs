@@ -12,10 +12,11 @@ namespace SistemaCompra.Domain.SolicitacaoCompraAggregate
     {
         public UsuarioSolicitante UsuarioSolicitante { get; private set; }
         public NomeFornecedor NomeFornecedor { get; private set; }
-        public IList<Item> Itens { get; private set; }
+        public IList<Item> Itens { get; private set; } = new List<Item>();
         public DateTime Data { get; private set; }
-        public Money TotalGeral { get; private set; }
+        public Money TotalGeral { get; private set; } = new Money();
         public Situacao Situacao { get; private set; }
+        public CondicaoPagamento CondicaoPagamento { get; private set; }
 
         private SolicitacaoCompra() { }
 
@@ -30,12 +31,35 @@ namespace SistemaCompra.Domain.SolicitacaoCompraAggregate
 
         public void AdicionarItem(Produto produto, int qtde)
         {
-            Itens.Add(new Item(produto, qtde));
+            var item = new Item(produto, qtde);
+            Itens.Add(item);
+            TotalGeral = TotalGeral.Add(item.Subtotal);
         }
 
         public void RegistrarCompra(IEnumerable<Item> itens)
         {
-           
+            if (!itens.Any()) throw new BusinessRuleException("A solicitação de compra deve possuir itens!");
+
+            foreach (Item item in itens)
+            {
+                AdicionarItem(item.Produto, item.Qtde);
+            }
+
+            AtualizarCondicaoPagamento();
+
+            AddEvent(new CompraRegistradaEvent(Id, itens, TotalGeral.Value));
+        }
+
+        private void AtualizarCondicaoPagamento()
+        {
+            int condicao = 0;
+
+            if (TotalGeral.Value > 50000)
+            {
+                condicao = 30;
+            }
+
+            CondicaoPagamento = new CondicaoPagamento(condicao);
         }
     }
 }
